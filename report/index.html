@@ -13,36 +13,36 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px
 a{color:inherit}
 </style></head><body>
 <h1>과제 5 — AI 세션 간 인수인계 비교 보고서</h1>
-<p class="sub">기능: 환율 그래프의 5일·20일 이동평균선과 골든/데드 크로스 표시 · 생성: 2026. 11. 11. 12시 27분 7초</p>
+<p class="sub">기능: 환율 그래프의 5일·20일 이동평균선과 골든/데드 크로스 표시 · 생성: 2026. 11. 11. 14시 16분 33초</p>
 
 <h2>짧은 확인 방법</h2>
 <ol>
-  <li><b>어디로 가나요?</b> </li>
-  <li><b>3단계 이내에 무엇을 하나요?</b> </li>
-  <li><b>무엇이 보이면 통과인가요?</b> </li>
-  <li><b>안 될 때 무엇이 보이나요?</b> </li>
+  <li><b>어디로 가나요?</b> 결과 주소(비교 보고서 페이지)를 새 시크릿 창에서 연다</li>
+  <li><b>3단계 이내에 무엇을 하나요?</b> 비교표 → 작업 순서 표 → 인수인계 문서 순서로 아래로 내려 본다</li>
+  <li><b>무엇이 보이면 통과인가요?</b> A와 B 모두 검사 10/10, 다섯 단계 커밋 ID와 시각, 7개 항목 인수인계 문서가 보인다</li>
+  <li><b>안 될 때 무엇이 보이나요?</b> 값이 빠진 칸에는 주황색 '미기록'이 보인다</li>
 </ol>
 
 <h2>A/B 블라인드 비교표</h2>
 <table>
   <tr><th></th><th>AI A</th><th>AI B</th><th>비고</th></tr>
-  <tr><th>작업 시간(분)</th><td>33</td><td><span class="warn">미기록</span></td><td class="note">공통 상한 60분 · A: 직접 기록 / B: 커밋 시각 차이</td></tr>
-  <tr><th>요청 수</th><td>8</td><td><span class="warn">미기록</span></td><td class="note">공통 상한 20회</td></tr>
-  <tr><th>호출 수</th><td><span class="warn">미기록</span></td><td><span class="warn">미기록</span></td><td class="note"></td></tr>
+  <tr><th>작업 시간(분)</th><td>33</td><td>30</td><td class="note">공통 상한 60분 · A: 직접 기록 / B: 직접 기록</td></tr>
+  <tr><th>요청 수</th><td>8</td><td>3</td><td class="note">공통 상한 20회</td></tr>
+  
   <tr><th>오류 회차</th><td>0</td><td>0</td><td class="note">고정 검사 10개 중 하나 이상 FAIL 이었던 실행 횟수</td></tr>
   <tr><th>검사 통과 수</th><td>10 / 10</td><td>10 / 10</td><td class="note">각 AI 마지막 실행 기준</td></tr>
-  <tr><th>소스 변경(줄)</th><td>+111 / -56</td><td><span class="warn">미기록</span></td><td class="note">검사·도구·보고서·기록 파일·lockfile 제외</td></tr>
+  <tr><th>소스 변경(줄)</th><td>+111 / -56</td><td>+246 / -12</td><td class="note">검사·도구·보고서·기록 파일·lockfile 제외</td></tr>
 </table>
 
 <h2>작업 순서와 고정 소스 버전</h2>
 <table>
   <tr><th>단계</th><th>시각(KST)</th><th>커밋 ID</th></tr>
-  <tr><th>A 시작</th><td>2026. 11. 11. 11시 22분 41초</td><td>48f06fd</td></tr><tr><th>A 중단</th><td>2026. 11. 11. 11시 42분 10초</td><td>88996ce</td></tr><tr><th>A 인수인계</th><td>2026. 11. 11. 11시 55분 58초</td><td>cd8472a</td></tr><tr><th>B 시작</th><td>2026. 11. 11. 12시 0분 29초</td><td>1d3e9c6</td></tr><tr><th>B 완료</th><td>-</td><td><span class="warn">미기록</span></td></tr>
+  <tr><th>A 시작</th><td>2026. 11. 11. 11시 22분 41초</td><td>48f06fd</td></tr><tr><th>A 중단</th><td>2026. 11. 11. 11시 42분 10초</td><td>88996ce</td></tr><tr><th>A 인수인계</th><td>2026. 11. 11. 11시 55분 58초</td><td>cd8472a</td></tr><tr><th>B 시작</th><td>2026. 11. 11. 12시 0분 29초</td><td>1d3e9c6</td></tr><tr><th>B 완료</th><td>2026. 11. 11. 12시 33분 44초</td><td>606743d</td></tr>
 </table>
 <p>시작 → A 인수인계 → B 시작 → B 완료 순서로 기록했습니다.</p>
 
 <h2>인수인계 누락</h2>
-<p><span class="warn">미기록</span></p>
+<p>없음</p>
 
 <h2>인수인계 문서 (HANDOFF.md)</h2>
 <pre># HANDOFF
@@ -89,12 +89,12 @@ node tools/run-tests.js A      # 검사 실행 + test-runs.json 에 결과 1줄 
 
 <h2>AI와 나의 판단</h2>
 <ul>
-  <li><b>AI에게 맡긴 일:</b> </li>
-  <li><b>직접 판단한 일:</b> </li>
-  <li><b>AI 제안을 따르지 않은 일:</b> </li>
+  <li><b>AI에게 맡긴 일:</b> 이동평균 계산 함수 구현, 차트에 이동평균선과 툴팁 추가(A), 골든/데드 크로스 표시와 범례 추가(B), 인수인계 문서 초안 작성(A)</li>
+  <li><b>직접 판단한 일:</b> 기능 선택, 검사 10개와 기대값, 시간·요청 한도, A의 중단 시점, 인수인계 문서 보완(B 기록 명령·크로스 필수), 브라우저 화면 확인</li>
+  <li><b>AI 제안을 따르지 않은 일:</b> A가 인수인계 문서에서 크로스 표시를 선택 사항으로 둔 것을 따르지 않고, 원래 목표대로 필수로 바꿨다</li>
 </ul>
 
 <h2>다음 작업의 도구 선택 기준</h2>
-<p><span class="warn">미기록</span></p>
+<p>B는 30분·3회로 A(33분·8회)보다 적게 들었지만 A가 만든 구조와 인수인계 문서 위에서 시작했으므로, 처음부터 구조를 만드는 작업은 A를 먼저 쓰고 문서가 준비된 이어받기 작업은 B에 넘긴다.</p>
 
 </body></html>

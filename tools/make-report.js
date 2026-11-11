@@ -92,7 +92,7 @@ const body = `
   <tr><th></th><th>AI A</th><th>AI B</th><th>비고</th></tr>
   ${row('작업 시간(분)', dash(A.minutes), dash(B.minutes), `공통 상한 ${esc(lim.minutes ?? '-')}분 · A: ${A.minutesFrom} / B: ${B.minutesFrom}`)}
   ${row('요청 수', dash(A.requests), dash(B.requests), `공통 상한 ${esc(lim.requests ?? '-')}회`)}
-  ${row('호출 수', dash(A.toolCalls), dash(B.toolCalls), '')}
+  ${A.toolCalls == null && B.toolCalls == null ? '' : row('호출 수', dash(A.toolCalls), dash(B.toolCalls), '')}
   ${row('오류 회차', dash(A.errorRuns), dash(B.errorRuns), '고정 검사 10개 중 하나 이상 FAIL 이었던 실행 횟수')}
   ${row('검사 통과 수', A.passed == null ? dash(null) : `${A.passed} / ${A.total}`, B.passed == null ? dash(null) : `${B.passed} / ${B.total}`, '각 AI 마지막 실행 기준')}
   ${row('소스 변경(줄)', dash(lines(A)), dash(lines(B)), '검사·도구·보고서·기록 파일·lockfile 제외')}

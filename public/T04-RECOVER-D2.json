@@ -1,0 +1,8 @@
+{
+  "asset_id": "T04-RECOVER-D2",
+  "synthetic": true,
+  "description": "Synthetic recovery asset: replays a successful fetch on the next KST date.",
+  "day_offset": 1,
+  "source": "synthetic-test-asset",
+  "rates": { "usd_krw": 1393.0, "jpy100_krw": 925.0 }
+}

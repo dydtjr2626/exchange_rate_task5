@@ -1,0 +1,11 @@
+{
+  "repo_url": "",
+  "report_url": "",
+  "limits": { "minutes": 60, "requests": 20 },
+  "A": { "minutes": null, "requests": null, "tool_calls": null },
+  "B": { "minutes": null, "requests": null, "tool_calls": null },
+  "handoff_missing": "",
+  "tool_criterion": "",
+  "verify": ["", "", "", ""],
+  "judgment": { "delegated": "", "decided_by_me": "", "not_followed": "" }
+}

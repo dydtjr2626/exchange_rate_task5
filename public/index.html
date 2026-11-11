@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>환율 정보판 (Task 04)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script>
+  /* 깜빡임 없이 테마를 먼저 적용한다: 저장된 선택 > 시스템 설정 */
+  (function () { try { var t = localStorage.getItem('t04_theme'); if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+</script>
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>실시간 환율 정보판 <span class="dev-flag dev-only">개발자 모드</span></h1>
+    <button type="button" id="theme-toggle" class="icon-btn" aria-label="다크 모드로 전환" title="다크 모드로 전환">🌙</button>
+  </div>
+  <div id="net-banner" class="net-banner" role="status" hidden>오프라인 상태입니다. 마지막으로 가져온 값을 표시하고 있습니다. 연결되면 자동으로 다시 조회합니다.</div>
+
+  <div class="layout">
+    <div class="main-col">
+
+      <section id="status-bar" class="status fresh" aria-live="polite">
+        <p id="status-line" class="status-line"></p>
+        <div class="status-row">
+          <span id="status-badge">fresh</span>
+          <span id="status-code" class="dev-only">error_code: none</span>
+          <span id="status-msg"></span>
+          <button id="retry-btn" hidden>↻ 다시 시도</button>
+        </div>
+        <p id="status-guide" class="small"></p>
+        <p id="recover-result" class="recover"></p>
+        <div class="status-foot small">
+          <strong id="status-age"></strong>
+          <span id="status-times"></span>
+          <span id="auto-note"></span>
+        </div>
+      </section>
+
+      <section class="cards">
+        <article class="card" id="card-usd">
+          <h2>USD / KRW</h2>
+          <div class="value" id="usd-value">-</div>
+          <div class="unit">1 USD 당 원화</div>
+          <div class="diff" id="usd-diff"></div>
+          <div class="card-actions">
+            <button type="button" class="outline sm copy-rate" data-cur="USD" title="출처와 시각이 포함된 한 줄로 복사">📋 복사</button>
+            <button type="button" class="outline sm share-rate" data-cur="USD" hidden>공유</button>
+          </div>
+          <span class="stale-tag" id="usd-stale" hidden>오래된 값</span>
+        </article>
+        <article class="card" id="card-jpy">
+          <h2>JPY / KRW</h2>
+          <div class="value" id="jpy-value">-</div>
+          <div class="unit">100 JPY 당 원화</div>
+          <div class="diff" id="jpy-diff"></div>
+          <div class="card-actions">
+            <button type="button" class="outline sm copy-rate" data-cur="JPY" title="출처와 시각이 포함된 한 줄로 복사">📋 복사</button>
+            <button type="button" class="outline sm share-rate" data-cur="JPY" hidden>공유</button>
+          </div>
+          <span class="stale-tag" id="jpy-stale" hidden>오래된 값</span>
+        </article>
+        <!-- 추가 통화 카드는 여기에 들어가 달러·엔 카드와 같은 격자(같은 줄)에 놓인다 -->
+        <div id="extra-cards" class="extra-cards"></div>
+      </section>
+
+      <div class="extra-bar" id="extra-bar">
+        <label for="extra-select" class="small">＋ 통화 추가</label>
+        <select id="extra-select" aria-label="추가할 통화"></select>
+        <button type="button" id="extra-add" class="outline sm">추가</button>
+        <span id="extra-msg" class="small"></span>
+      </div>
+
+      <section class="calc" id="calc">
+        <h2>환율 계산기</h2>
+        <div class="calc-row">
+          <input id="calc-amount" type="text" inputmode="decimal" value="1000" autocomplete="off" aria-label="바꿀 금액">
+          <select id="calc-from" aria-label="바꿀 통화"></select>
+          <button type="button" id="calc-swap" class="outline" aria-label="통화 맞바꾸기" title="맞바꾸기">⇄</button>
+          <select id="calc-to" aria-label="받을 통화"></select>
+        </div>
+        <div id="calc-result" class="calc-result" aria-live="polite"></div>
+        <div id="calc-detail" class="calc-detail small"></div>
+        <div class="calc-actions"><button type="button" id="calc-copy" class="outline sm">📋 결과 복사</button></div>
+      </section>
+
+      <section class="meta">
+        <h2>출처 · 시각</h2>
+        <dl>
+          <dt>출처</dt><dd id="m-source">-</dd>
+          <dt>출처 시각</dt><dd id="m-source-time">-</dd>
+          <dt>조회 시각</dt><dd id="m-fetched">-</dd>
+          <dt>기준 시간대</dt><dd>KST (Asia/Seoul, UTC+9)</dd>
+        </dl>
+        <div class="btn-group">
+          <button id="refresh-btn">실제 환율 조회</button>
+          <button id="backfill-btn" class="outline">전체 과거 값 다시 가져오기</button>
+        </div>
+        <p id="backfill-msg" class="small"></p>
+        <details class="dev-only">
+          <summary>원자료 (raw response)</summary>
+          <pre id="raw">-</pre>
+        </details>
+      </section>
+
+      <section class="trend">
+        <h2>최근 변화 (일별 기록)</h2>
+        <div class="range-bar">
+          <label for="range-select">표시 기간</label>
+          <select id="range-select">
+            <option value="1">1일</option>
+            <option value="7">7일</option>
+            <option value="30">30일</option>
+            <option value="90">90일</option>
+            <option value="180">180일</option>
+            <option value="365">365일</option>
+            <option value="3650">10년</option>
+            <option value="0">전체 (1977~)</option>
+          </select>
+          <span class="small">차트 · 통계 · 표 · 내려받기에 적용됩니다 (표 범위는 아래에서 따로 바꿀 수 있어요)</span>
+        </div>
+        <div class="charts">
+          <div class="chart" id="chart-usd"></div>
+          <div class="chart" id="chart-jpy"></div>
+        </div>
+        <div id="chart-ask" class="chart-ask"></div>
+        <div id="chart-legend" class="legend"></div>
+        <p class="small">같은 값은 아래 표에서도 볼 수 있습니다.</p>
+
+        <h3 class="sub-title">기간 통계 <span class="small">(선택한 기간, 코드로 계산)</span></h3>
+        <div id="stats" class="stats"></div>
+
+        <h3 class="sub-title">교차 환율: 엔화가 약해진 걸까, 원화가 강해진 걸까?</h3>
+        <div class="cross">
+          <div class="chart" id="chart-cross"></div>
+          <div id="cross-note" class="cross-note"></div>
+        </div>
+      </section>
+
+      <section class="history">
+        <h2>일별 기록 (KST 날짜 기준)</h2>
+        <div class="table-controls">
+          <label class="small" for="table-scope">표 범위</label>
+          <select id="table-scope"><option value="range">표시 기간</option><option value="all">전체 기록</option></select>
+          <label class="small" for="table-size">페이지당</label>
+          <select id="table-size"><option value="25">25건</option><option value="50">50건</option><option value="100">100건</option><option value="200">200건</option></select>
+          <label class="small" for="table-jump">날짜로 이동</label>
+          <input id="table-jump" type="date">
+          <button type="button" id="table-jump-btn" class="outline sm">이동</button>
+        </div>
+        <p id="table-jump-msg" class="small"></p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>KST 날짜</th><th>USD/KRW</th><th>100JPY/KRW</th><th>구분</th><th class="ai-col" title="이 날의 변화를 AI에게 물어보기">AI</th></tr></thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+        <p id="table-note" class="small"></p>
+        <nav class="pager" id="table-pager" aria-label="기록 표 페이지 이동" hidden>
+          <button type="button" id="pg-first" class="outline sm" aria-label="첫 페이지">«</button>
+          <button type="button" id="pg-prev" class="outline sm" aria-label="이전 페이지">‹ 이전</button>
+          <span class="pager-pos"><input id="pg-input" type="number" min="1" value="1" aria-label="페이지 번호"> / <span id="pg-total">1</span> 페이지</span>
+          <button type="button" id="pg-next" class="outline sm" aria-label="다음 페이지">다음 ›</button>
+          <button type="button" id="pg-last" class="outline sm" aria-label="마지막 페이지">»</button>
+        </nav>
+        <p id="record-note" class="small dev-only"></p>
+        <div class="toolbar">
+          <div class="btn-group">
+            <span class="grp-label">내려받기</span>
+            <button id="export-json" class="outline">JSON</button>
+            <button id="export-csv" class="outline">CSV</button>
+          </div>
+          <div class="btn-group dev-only">
+            <span class="grp-label">관리</span>
+            <button id="clean-btn" class="danger-outline" title="제출 전 권장: 합성 기록만 삭제, 실제 기록은 유지">합성 기록 제거</button>
+            <button id="reset-btn" class="danger">전체 초기화</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sim dev-only">
+        <details open>
+          <summary><span class="test-badge">TEST</span> 실패 합성 재생 <span class="small">시험용 · 실행하면 상태가 stale로 바뀝니다(마지막 정상값은 유지)</span></summary>
+          <div class="sim-body">
+            <select id="fail-select">
+              <option value="timeout">느린 외부 응답 (Timeout)</option>
+              <option value="auth">401 / 403 거절</option>
+              <option value="rate">호출 제한 (429)</option>
+              <option value="offline">오프라인</option>
+              <option value="schema">응답 형식 변경</option>
+            </select>
+            <button id="fail-btn">실패 재생</button>
+            <div class="hash-box">
+              <div class="hash-head">
+                <span>복구 asset <code>T04-RECOVER-D2</code></span>
+                <span class="hash-links">
+                  <a class="btn-link" href="T04-RECOVER-D2.json" target="_blank">asset 보기</a>
+                  <a class="btn-link" href="T04-RECOVER-D2.sha256" target="_blank">기준 해시 보기</a>
+                </span>
+              </div>
+              <div class="hash-label">SHA-256</div>
+              <div class="hash-row">
+                <code id="asset-hash">-</code>
+                <button type="button" id="copy-hash" class="outline sm">복사</button>
+              </div>
+              <span id="asset-verify" class="verify na">검증 중...</span>
+            </div>
+          </div>
+        </details>
+      </section>
+
+    </div>
+
+    <aside class="chat-col">
+      <section class="chat" id="chat-panel">
+        <div class="chat-head">
+          <h2>AI 환율 해설 (일반적 추론)</h2>
+          <button type="button" id="chat-reset" class="link-btn" title="대화 기억을 지우고 처음부터 시작합니다">새 대화</button>
+        </div>
+        <p class="small chat-sub">앞선 대화를 기억하고, 필요하면 한국은행 데이터를 직접 조회해 답합니다.</p>
+        <div id="insight" class="insight" hidden>
+          <div class="insight-head"><span>📊 오늘의 한 줄 요약</span><span class="insight-tag" title="수치와 문장을 모두 코드가 계산해서 만듭니다. 표현 기준: 하루 변화 ±0.1% 미만 '거의 변동 없음', ±0.5% 미만 '소폭', ±1% 미만 '다소', 그 이상 '큰 폭' / 30일 변화는 ±0.5%, ±2%, ±4% 기준">코드로 계산</span></div>
+          <p id="insight-text"></p>
+          <p id="insight-note" class="small"></p>
+        </div>
+        <div id="chat-examples" class="examples">
+          <button type="button" class="chip">오늘 환율이 왜 올랐어?</button>
+          <button type="button" class="chip">지난 1년 동안 환율은 어땠어?</button>
+          <button type="button" class="chip">엔화 환율은 어때?</button>
+          <button type="button" class="chip">환율이 오르면 어떤 영향이 있어?</button>
+          <button type="button" class="chip">다음 달 일본 여행 환전 지금 해도 돼?</button>
+        </div>
+        <div id="chat-log"></div>
+        <form id="chat-form">
+          <input id="chat-input" maxlength="200" placeholder="예: 오늘 환율이 왜 올랐어?" required>
+          <button type="submit" id="chat-btn">질문</button>
+        </form>
+        <div id="chat-count" class="count small">0 / 200</div>
+        <p class="disclaimer">⚠ 참고용 정보이며 투자 조언이 아닙니다. 환율은 예측할 수 없고, 실제 환전·송금 환율은 은행마다 다릅니다.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+<a class="ai-fab" href="#chat-panel" aria-label="AI 해설로 이동">✨ AI</a>
+<script src="app.js"></script>
+</body>
+</html>

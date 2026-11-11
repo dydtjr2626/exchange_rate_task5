@@ -1,0 +1,13 @@
+.env
+.env.*
+.vercel
+node_modules
+
+.vercel
+
+# 키 파일 보호 (프로젝트 안에 실수로 만들어도 Git/제출에 포함되지 않게)
+.exchange_rate.env
+*.env
+
+# Vercel 연결 정보 폴더(이름을 바꿔 둠). 제출/GitHub 업로드 시 제외
+_제출시_제외_vercel연결정보

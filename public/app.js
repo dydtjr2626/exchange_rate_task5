@@ -463,7 +463,7 @@ function render() {
   maybeInsight();
 }
 
-// 범례: 실제 조회가 아닌 기록(수동 입력/합성)이 있을 때만 표시 (실제 기록으로 바뀌면 자동으로 사라짐)
+// 범례: 이동평균선(5일·20일)과 골든/데드 크로스 설명, 그리고 실제 조회/수동/합성 구분
 function legendItem(kind, text) {
   const item = document.createElement('span');
   item.className = 'lg-item';
@@ -475,12 +475,59 @@ function legendItem(kind, text) {
 function renderLegend() {
   const lg = $('chart-legend');
   lg.replaceChildren();
+
+  // 1. 이동평균선 및 골든/데드 크로스 설명 그룹
+  const maGroup = document.createElement('div');
+  maGroup.className = 'legend-group legend-ma';
+
+  const item5 = document.createElement('span');
+  item5.className = 'lg-item';
+  const l5 = document.createElement('span');
+  l5.className = 'lg-line ma5';
+  const t5 = document.createElement('span');
+  t5.innerHTML = '<strong>5일선</strong>: 최근 5일 평균 (단기 추세)';
+  item5.append(l5, t5);
+
+  const item20 = document.createElement('span');
+  item20.className = 'lg-item';
+  const l20 = document.createElement('span');
+  l20.className = 'lg-line ma20';
+  const t20 = document.createElement('span');
+  t20.innerHTML = '<strong>20일선</strong>: 최근 20일 평균 (중기 추세)';
+  item20.append(l20, t20);
+
+  const itemGolden = document.createElement('span');
+  itemGolden.className = 'lg-item';
+  const mG = document.createElement('span');
+  mG.className = 'lg-mark golden';
+  mG.textContent = '▲';
+  const tG = document.createElement('span');
+  tG.innerHTML = '<strong>골든 크로스(▲)</strong>: 5일선이 20일선 상향 돌파 (상승 전환 신호)';
+  itemGolden.append(mG, tG);
+
+  const itemDead = document.createElement('span');
+  itemDead.className = 'lg-item';
+  const mD = document.createElement('span');
+  mD.className = 'lg-mark dead';
+  mD.textContent = '▼';
+  const tD = document.createElement('span');
+  tD.innerHTML = '<strong>데드 크로스(▼)</strong>: 5일선이 20일선 하향 돌파 (하락 전환 신호)';
+  itemDead.append(mD, tD);
+
+  maGroup.append(item5, item20, itemGolden, itemDead);
+  lg.appendChild(maGroup);
+
+  // 2. 데이터 종류(실제 조회 / 수동 입력 / 합성) 범례: 해당 데이터가 존재할 때 표시
   const w = windowRecords();
   const hasManual = w.some((h) => h.manual), hasSynth = w.some((h) => h.synthetic);
-  if (!hasManual && !hasSynth) return;
-  lg.append(legendItem('real', '실제 조회 (실선)'));
-  if (hasManual) lg.append(legendItem('manual', '수동 입력 (점선)'));
-  if (hasSynth) lg.append(legendItem('synth', '합성(복구 asset) (점선)'));
+  if (hasManual || hasSynth) {
+    const dataGroup = document.createElement('div');
+    dataGroup.className = 'legend-group legend-data';
+    dataGroup.append(legendItem('real', '실제 조회 (실선)'));
+    if (hasManual) dataGroup.append(legendItem('manual', '수동 입력 (점선)'));
+    if (hasSynth) dataGroup.append(legendItem('synth', '합성(복구 asset) (점선)'));
+    lg.appendChild(dataGroup);
+  }
 }
 
 function setBusy(b) {
@@ -528,9 +575,23 @@ function drawChart(id, key, title, opts = {}) {
   const W = opts.big ? 720 : 360, H = opts.big ? 320 : 170, m = { l: 48, r: 64, t: opts.big ? 22 : 14, b: 26 };
   // Y축: 데이터 범위에 약간의 여백만 두고(바깥으로 반올림하지 않음), 그 안의 깔끔한 값에 눈금을 둔다
   // 이동평균 (5일 · 20일): 기간 앞쪽 값도 쓰도록 전체 기록으로 계산한 뒤 보이는 구간만 잘라 쓴다
-  const maSrc = opts.recs || state.history;
+  const maSrc = opts.allRecs || opts.recs || state.history;
   const maVals = maSrc.map((h) => h[key]);
-  const maSeries = [[5, 'ma5'], [20, 'ma20']].map(([win, cls]) => ({ win, cls, ma: window.MA.movingAverage(maVals, win).slice(maSrc.length - pts.length) }));
+  const offset = maSrc.length - pts.length;
+  const fullMa5 = window.MA.movingAverage(maVals, 5);
+  const fullMa20 = window.MA.movingAverage(maVals, 20);
+  const maSeries = [
+    { win: 5, cls: 'ma5', ma: fullMa5.slice(offset) },
+    { win: 20, cls: 'ma20', ma: fullMa20.slice(offset) },
+  ];
+  const allCrosses = (window.MA && window.MA.findCrosses)
+    ? window.MA.findCrosses(fullMa5, fullMa20)
+    : [];
+  const crosses = allCrosses
+    .filter((c) => c.index >= offset && c.index < maSrc.length)
+    .map((c) => ({ index: c.index - offset, type: c.type }));
+  const crossMap = new Map();
+  for (const c of crosses) crossMap.set(c.index, c);
   const vals = pts.map((p) => p.v);
   let vmin = Infinity, vmax = -Infinity; // (수천 건에도 안전하도록 spread 대신 반복문)
   for (const v of vals) { if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
@@ -588,7 +649,11 @@ function drawChart(id, key, title, opts = {}) {
   const maLegend = svgEl('text', { class: 'ch-tick', x: W - m.r, y: m.t - 3, 'text-anchor': 'end' });
   const l5 = svgEl('tspan', { class: 'ma5-text' }); l5.textContent = '── 5일  ';
   const l20 = svgEl('tspan', { class: 'ma20-text' }); l20.textContent = '── 20일';
-  maLegend.append(l5, l20);
+  const lGolden = svgEl('tspan', { class: 'ma-cross-legend golden' }); lGolden.textContent = '  ▲ 골든';
+  const lDead = svgEl('tspan', { class: 'ma-cross-legend dead' }); lDead.textContent = '  ▼ 데드';
+  const legTitle = svgEl('title');
+  legTitle.textContent = '── 5일선: 5일 이동평균선 (단기 추세)\n── 20일선: 20일 이동평균선 (중기 추세)\n▲ 골든 크로스: 5일선이 20일선을 상향 돌파 (상승 전환 신호)\n▼ 데드 크로스: 5일선이 20일선을 하향 돌파 (하락 전환 신호)';
+  maLegend.append(l5, l20, lGolden, lDead, legTitle);
   svg.appendChild(maLegend);
 
   const cross = svgEl('line', { class: 'ch-cross', y1: m.t, y2: H - m.b, visibility: 'hidden' });
@@ -666,7 +731,15 @@ function drawChart(id, key, title, opts = {}) {
       else { maDots[k].setAttribute('cx', x(p.t)); maDots[k].setAttribute('cy', y(v)); maDots[k].setAttribute('visibility', 'visible'); }
       return row;
     });
-    tip.replaceChildren(dateLine, valLine, changeChip(chg ? '전일 대비' : '', chg, U), ...maRows);
+    const tipChildren = [dateLine, valLine, changeChip(chg ? '전일 대비' : '', chg, U), ...maRows];
+    const crossInfo = crossMap.get(i);
+    if (crossInfo) {
+      const crossRow = document.createElement('div');
+      crossRow.className = 'tip-cross ' + crossInfo.type;
+      crossRow.textContent = `${crossInfo.type === 'golden' ? '골든 크로스' : '데드 크로스'} - ${p.date}`;
+      tipChildren.push(crossRow);
+    }
+    tip.replaceChildren(...tipChildren);
     tip.hidden = false;
     // 위치는 SVG의 화면 좌표로 계산한다 (SVG 요소에는 offsetLeft/offsetTop이 없다)
     const r = svg.getBoundingClientRect(), br = box.getBoundingClientRect();
@@ -705,6 +778,50 @@ function drawChart(id, key, title, opts = {}) {
   });
   hit.addEventListener('mouseleave', hide);
   dots.forEach((d, i) => { d.addEventListener('focus', () => show(i)); d.addEventListener('blur', hide); });
+
+  // 골든 / 데드 크로스 마커 (골든은 ▲, 데드는 ▼, 서로 다른 색)
+  for (const c of crosses) {
+    const p = pts[c.index];
+    const ma0 = maSeries[0].ma[c.index], ma1 = maSeries[1].ma[c.index];
+    if (typeof ma0 !== 'number' || typeof ma1 !== 'number') continue;
+    const cx = x(p.t);
+    const cy = y((ma0 + ma1) / 2);
+    const isGolden = c.type === 'golden';
+    const cLabel = isGolden ? '골든 크로스' : '데드 크로스';
+    const tooltipText = `${cLabel} - ${p.date}`;
+    const markerY = isGolden ? Math.min(H - m.b - 6, cy + 13) : Math.max(m.t + 10, cy - 13);
+
+    const marker = svgEl('text', {
+      class: `ch-cross-marker ${c.type}`,
+      x: cx.toFixed(1),
+      y: markerY.toFixed(1),
+      'text-anchor': 'middle',
+      'dominant-baseline': 'central',
+      role: 'img',
+      tabindex: '0',
+      'aria-label': tooltipText,
+    });
+    marker.textContent = isGolden ? '▲' : '▼';
+    const titleEl = svgEl('title');
+    titleEl.textContent = tooltipText;
+    marker.appendChild(titleEl);
+
+    marker.addEventListener('mouseenter', () => show(c.index));
+    marker.addEventListener('mousemove', (ev) => {
+      ev.stopPropagation();
+      show(c.index);
+    });
+    marker.addEventListener('mouseleave', hide);
+    marker.addEventListener('focus', () => show(c.index));
+    marker.addEventListener('blur', hide);
+    marker.addEventListener('mousedown', (ev) => {
+      if (opts.noSelect || ev.button !== 0) return;
+      chartDrag = { pts, i0: c.index, i1: c.index, moved: false };
+      ev.preventDefault();
+    });
+
+    svg.appendChild(marker);
+  }
 
   box.append(svg, tip);
 }
@@ -1398,7 +1515,8 @@ function drawExtraChart(c) {
   const s = extraData[c];
   if (!s || !s.length || !$(`chart-x-${c}`)) return;
   const w = extraWindow(s);
-  drawChart(`chart-x-${c}`, 'v', `${c} / KRW (원)`, { recs: w.recs, unit: '원', prevFirst: w.prevFirst, noSelect: true, big: true });
+  const allRecs = s.map(([dt, v]) => ({ kst_date: dt, v, backfilled: true }));
+  drawChart(`chart-x-${c}`, 'v', `${c} / KRW (원)`, { recs: w.recs, unit: '원', prevFirst: w.prevFirst, noSelect: true, big: true, allRecs });
 }
 // 추가 통화 카드: 달러·엔 카드와 같은 격자(#extra-cards 는 display: contents)에 같은 모양으로 놓인다
 function renderExtra() {

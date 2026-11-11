@@ -134,13 +134,64 @@ body:not(.dev) .dev-only { display: none !important; }
 .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: .82rem; background: #eceef0; color: #3b3f45; }
 .pill.synth { background: #fff4e0; color: #8a4b00; font-weight: 600; }
 
-/* 차트 범례 / 합성 구간(점선) */
-.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: .82rem; color: var(--ink-2); }
+/* 차트 범례: 이동평균선(5일·20일) & 골든/데드 크로스 & 합성 구간 */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: .82rem;
+  color: #52514e;
+}
 .legend:empty { display: none; }
+.legend-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.legend-group.legend-data {
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+}
 .lg-item { display: inline-flex; align-items: center; gap: 6px; }
+.lg-item strong { color: #1b1f23; }
+.lg-line {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.lg-line.ma5 { background: #e08a00; }
+.lg-line.ma20 { background: #8e44ad; }
+.lg-mark {
+  font-size: .95rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.lg-mark.golden { color: #e53935; }
+.lg-mark.dead { color: #1e88e5; }
 .lg-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--series-1); border: 2px solid var(--series-1); }
 .lg-dot.hollow { background: #fff; }
 .ch-line.dashed { stroke-dasharray: 5 4; }
+
+html[data-theme="dark"] .legend {
+  background: #252b31;
+  border-color: #3b434c;
+  color: #adb5bd;
+}
+html[data-theme="dark"] .legend-group.legend-data {
+  border-top-color: #3b434c;
+}
+html[data-theme="dark"] .lg-item strong { color: #f1f3f5; }
+html[data-theme="dark"] .lg-line.ma5 { background: #ffb347; }
+html[data-theme="dark"] .lg-line.ma20 { background: #c39bd3; }
+html[data-theme="dark"] .lg-mark.golden { color: #ff6b6b; }
+html[data-theme="dark"] .lg-mark.dead { color: #64b5f6; }
 
 /* 버튼 그룹 / 위계: 주(파랑) > 보조(외곽선) > 위험(빨강) */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-top: 10px; }
@@ -425,3 +476,68 @@ html[data-theme="dark"] .ch-ma.ma20, html[data-theme="dark"] .ma20-text { stroke
 .ch-tip .tip-ma.ma5 { color: #ffb347; }
 .ch-tip .tip-ma.ma20 { color: #d7b4ea; }
 .extra-charts { display: contents; }
+
+/* 골든 / 데드 크로스 마커 */
+.ch-cross-marker {
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  stroke: #ffffff;
+  stroke-width: 2.5px;
+  paint-order: stroke fill;
+  user-select: none;
+  transition: transform 0.12s ease;
+}
+.ch-cross-marker:hover, .ch-cross-marker:focus-visible {
+  transform: scale(1.35);
+  transform-origin: center;
+  outline: none;
+}
+.ch-cross-marker.golden {
+  fill: #e53935;
+}
+.ch-cross-marker.dead {
+  fill: #1e88e5;
+}
+
+html[data-theme="dark"] .ch-cross-marker {
+  stroke: #1b1f23;
+}
+html[data-theme="dark"] .ch-cross-marker.golden {
+  fill: #ff6b6b;
+}
+html[data-theme="dark"] .ch-cross-marker.dead {
+  fill: #64b5f6;
+}
+
+/* 차트 상단 범례의 크로스 라벨 */
+.ma-cross-legend.golden { fill: #e53935; font-weight: 700; }
+.ma-cross-legend.dead { fill: #1e88e5; font-weight: 700; }
+html[data-theme="dark"] .ma-cross-legend.golden { fill: #ff6b6b; }
+html[data-theme="dark"] .ma-cross-legend.dead { fill: #64b5f6; }
+
+/* 툴팁 내 크로스 배지 */
+.ch-tip .tip-cross {
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: .78rem;
+  font-weight: 700;
+  display: inline-block;
+}
+.ch-tip .tip-cross.golden {
+  background: #ffebee;
+  color: #c62828;
+}
+.ch-tip .tip-cross.dead {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+html[data-theme="dark"] .ch-tip .tip-cross.golden {
+  background: #4a151b;
+  color: #ff8a80;
+}
+html[data-theme="dark"] .ch-tip .tip-cross.dead {
+  background: #0d2847;
+  color: #90caf9;
+}

@@ -3,7 +3,7 @@
 기준 커밋: `88996ce8d949325024ac6aed99a62b06c9fecc52` (작성 시점 작업 트리는 깨끗함)
 
 ## 1. 목표
-환율 정보판(USD·JPY 및 추가 통화)의 일별 추이 차트에 **5일·20일 이동평균선**을 겹쳐 그리고, 계산 함수 `public/ma.js`가 고정 검사 10개(`tests/ma.test.js`)를 통과하게 한다.
+환율 정보판(USD·JPY 및 추가 통화)의 일별 추이 차트에 **5일·20일 이동평균선**을 겹쳐 그리고, 계산 함수 `public/ma.js`가 고정 검사 10개(`tests/ma.test.js`)를 통과하게 한다. 골든/데드 크로스(`findCrosses`)를 차트에 표시하는 것까지가 완료 조건이다.
 
 ## 2. 현재 상태
 - `public/ma.js`: `movingAverage(values, window)`, `findCrosses(shortMA, longMA)` 구현. 브라우저(`window.MA`)와 Node(`module.exports`) 공용.
@@ -33,9 +33,8 @@ node tools/run-tests.js A      # 검사 실행 + test-runs.json 에 결과 1줄 
 ## 6. 다음 작업
 1. 서버를 켜고 브라우저에서 확인: 선이 차트 안에 들어오는지, 눈금 4개, 툴팁의 평균 표시, 다크 모드 색, 모바일 폭.
 2. 추가 통화를 넣고 짧은 기간(7일)과 긴 기간(10년)에서 차트가 정상인지 확인.
-3. (선택) 키보드 접근성 복원, 골든/데드 크로스를 차트에 표시.
-4. 변경 후 `node tools/run-tests.js A`로 10/10 유지 확인.
-
+3. 골든/데드 크로스를 차트에 표시(필수). 키보드 접근성 복원은 선택.
+4. 변경 후 `node tools/run-tests.js B`로 10/10 유지 확인. (이어받은 작업자는 반드시 B로 기록)
 ## 7. 변경 금지 범위
 다음 파일은 수정하지 않는다: `tests/` 전체, `tools/` 전체, `TASK5.md`, `records.json`.
 `test-runs.json`은 직접 편집하지 않고 `tools/run-tests.js`가 추가하는 기록만 남긴다.

@@ -2,7 +2,7 @@
   "repo_url": "",
   "report_url": "",
   "limits": { "minutes": 60, "requests": 20 },
-  "A": { "minutes": null, "requests": null, "tool_calls": null },
+  "A": { "minutes": 33, "requests": 8, "tool_calls": null },
   "B": { "minutes": null, "requests": null, "tool_calls": null },
   "handoff_missing": "",
   "tool_criterion": "",

@@ -525,21 +525,26 @@ function drawChart(id, key, title, opts = {}) {
     return;
   }
 
-  const W = 360, H = 170, m = { l: 48, r: 64, t: 14, b: 26 };
+  const W = opts.big ? 720 : 360, H = opts.big ? 320 : 170, m = { l: 48, r: 64, t: opts.big ? 22 : 14, b: 26 };
   // Y축: 데이터 범위에 약간의 여백만 두고(바깥으로 반올림하지 않음), 그 안의 깔끔한 값에 눈금을 둔다
+  // 이동평균 (5일 · 20일): 기간 앞쪽 값도 쓰도록 전체 기록으로 계산한 뒤 보이는 구간만 잘라 쓴다
+  const maSrc = opts.recs || state.history;
+  const maVals = maSrc.map((h) => h[key]);
+  const maSeries = [[5, 'ma5'], [20, 'ma20']].map(([win, cls]) => ({ win, cls, ma: window.MA.movingAverage(maVals, win).slice(maSrc.length - pts.length) }));
   const vals = pts.map((p) => p.v);
   let vmin = Infinity, vmax = -Infinity; // (수천 건에도 안전하도록 spread 대신 반복문)
   for (const v of vals) { if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
+  // 이동평균선도 Y 범위에 포함해 차트 밖으로 삐져나가지 않게 한다
+  for (const s of maSeries) for (const v of s.ma) if (v !== null) { if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
   const span = vmax - vmin || Math.max(1, vmax * 0.002);
   const y0 = vmin - span * 0.18, y1 = vmax + span * 0.18;
-  const nt = niceTicks(y0, y1, 3);
-  const step = nt.step;
-  const inside = nt.ticks.filter((v) => v >= y0 && v <= y1);
-  const ticks = inside.length >= 2 ? inside : nt.ticks;
+  // 눈금은 항상 4개: 보이는 범위를 3등분한 위치
+  const step = (y1 - y0) / 3;
+  const ticks = [0, 1, 2, 3].map((i) => y0 + step * i);
   const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
   const x = (t) => m.l + ((t - t0) / (t1 - t0)) * (W - m.l - m.r);
   const y = (v) => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
-  const dec = step % 1 === 0 ? 0 : step < 1 ? 2 : 1;
+  const dec = step >= 5 ? 0 : step >= 0.5 ? 1 : 2;
 
   const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${title} 일별 추이, 표와 같은 값` });
   for (const tv of ticks) {
@@ -569,6 +574,22 @@ function drawChart(id, key, title, opts = {}) {
       }));
     }
   }
+
+  for (const { cls, ma } of maSeries) {
+    const segs = [];
+    let cur = [];
+    ma.forEach((v, i) => {
+      if (v === null) { if (cur.length) segs.push(cur); cur = []; return; }
+      cur.push(`${x(pts[i].t).toFixed(1)},${y(v).toFixed(1)}`);
+    });
+    if (cur.length) segs.push(cur);
+    for (const s of segs) if (s.length > 1) svg.appendChild(svgEl('polyline', { class: 'ch-ma ' + cls, points: s.join(' ') }));
+  }
+  const maLegend = svgEl('text', { class: 'ch-tick', x: W - m.r, y: m.t - 3, 'text-anchor': 'end' });
+  const l5 = svgEl('tspan', { class: 'ma5-text' }); l5.textContent = '── 5일  ';
+  const l20 = svgEl('tspan', { class: 'ma20-text' }); l20.textContent = '── 20일';
+  maLegend.append(l5, l20);
+  svg.appendChild(maLegend);
 
   const cross = svgEl('line', { class: 'ch-cross', y1: m.t, y2: H - m.b, visibility: 'hidden' });
   svg.appendChild(cross);
@@ -613,23 +634,11 @@ function drawChart(id, key, title, opts = {}) {
     if (a >= 0 && b >= a) setSel(a, b);
   }
 
-  let dots = [];
-  let hoverDot = null;
-  if (!dense) {
-    dots = pts.map((p, i) => {
-      const common = { 'aria-label': `${p.date}${tagOf(p)} ${fmt(p.v)}${U}, ${changeText(i)}`, ...(pts.length <= 40 ? { tabindex: 0 } : {}) };
-      const d = p.manual // 수동 입력은 마름모로 구분
-        ? svgEl('polygon', { ...common, class: 'ch-dot manual', points: `${x(p.t)},${y(p.v) - 6} ${x(p.t) + 6},${y(p.v)} ${x(p.t)},${y(p.v) + 6} ${x(p.t) - 6},${y(p.v)}` })
-        : svgEl('circle', { ...common, class: 'ch-dot' + (p.synth ? ' synth' : ''), cx: x(p.t), cy: y(p.v), r: 4 });
-      svg.appendChild(d);
-      return d;
-    });
-  } else {
-    // 밀집 모드: 마지막 점 + 마우스를 올린 점만 표시
-    svg.appendChild(svgEl('circle', { class: 'ch-dot', cx: x(t1), cy: y(pts[pts.length - 1].v), r: 4 }));
-    hoverDot = svgEl('circle', { class: 'ch-dot', r: 4, visibility: 'hidden' });
-    svg.appendChild(hoverDot);
-  }
+  // 점은 그리지 않는다(이동평균선이 가려지지 않게). 마우스를 올린 위치에만 점 하나를 표시한다
+  const dots = [];
+  const hoverDot = svgEl('circle', { class: 'ch-dot', r: 4, visibility: 'hidden' });
+  svg.appendChild(hoverDot);
+  const maDots = maSeries.map((s) => { const d = svgEl('circle', { class: 'ch-ma-dot ' + s.cls, r: 3.5, visibility: 'hidden' }); svg.appendChild(d); return d; });
   const endLab = svgEl('text', { class: 'ch-end', x: x(t1) + 10, y: y(pts[pts.length - 1].v) + 4 });
   endLab.textContent = fmt(pts[pts.length - 1].v);
   svg.appendChild(endLab);
@@ -647,7 +656,17 @@ function drawChart(id, key, title, opts = {}) {
     valLine.className = 'tip-val';
     valLine.textContent = `${fmt(p.v)}${U}`;
     const chg = changeOf(i);
-    tip.replaceChildren(dateLine, valLine, changeChip(chg ? '전일 대비' : '', chg, U));
+    // 이동평균: 마우스 위치의 5일·20일 평균을 선 위의 점과 툴팁으로 보여 준다
+    const maRows = maSeries.map((s, k) => {
+      const v = s.ma[i];
+      const row = document.createElement('div');
+      row.className = 'tip-ma ' + s.cls;
+      row.textContent = `${s.win}일 평균 ${v === null ? '-' : fmt(v) + U}`;
+      if (v === null) maDots[k].setAttribute('visibility', 'hidden');
+      else { maDots[k].setAttribute('cx', x(p.t)); maDots[k].setAttribute('cy', y(v)); maDots[k].setAttribute('visibility', 'visible'); }
+      return row;
+    });
+    tip.replaceChildren(dateLine, valLine, changeChip(chg ? '전일 대비' : '', chg, U), ...maRows);
     tip.hidden = false;
     // 위치는 SVG의 화면 좌표로 계산한다 (SVG 요소에는 offsetLeft/offsetTop이 없다)
     const r = svg.getBoundingClientRect(), br = box.getBoundingClientRect();
@@ -659,6 +678,7 @@ function drawChart(id, key, title, opts = {}) {
   const hide = () => {
     dots.forEach((d) => d.classList.remove('on'));
     if (hoverDot) hoverDot.setAttribute('visibility', 'hidden');
+    maDots.forEach((d) => d.setAttribute('visibility', 'hidden'));
     cross.setAttribute('visibility', 'hidden');
     tip.hidden = true;
   };
@@ -1034,8 +1054,8 @@ function maybeInsight() {
 let chartSel = null;  // {start, end}
 let chartDrag = null; // 드래그 중인 상태 (drawChart 에서 설정)
 function drawCharts() {
-  drawChart('chart-usd', 'usd_krw', 'USD / KRW (원)');
-  drawChart('chart-jpy', 'jpy100_krw', '100 JPY / KRW (원)');
+  drawChart('chart-usd', 'usd_krw', 'USD / KRW (원)', { big: true });
+  drawChart('chart-jpy', 'jpy100_krw', '100 JPY / KRW (원)', { big: true });
   drawCrossChart();
 }
 function setChartSel(start, end) {
@@ -1366,7 +1386,6 @@ function extraWindow(s) {
   const from = idx < 0 ? 0 : idx;
   return { recs: s.slice(from).map(([dt, v]) => ({ kst_date: dt, v, backfilled: true })), prevFirst: from > 0 ? s[from - 1][1] : undefined };
 }
-const extraOpen = new Set(); // 차트를 펼쳐 둔 통화 (화면을 다시 그려도 유지)
 let extraFetchedAt = null;   // 추가 통화를 마지막으로 받은 시각
 // 복사용 한 줄: 출처와 시각이 함께 들어간다
 function extraLine(code) {
@@ -1379,7 +1398,7 @@ function drawExtraChart(c) {
   const s = extraData[c];
   if (!s || !s.length || !$(`chart-x-${c}`)) return;
   const w = extraWindow(s);
-  drawChart(`chart-x-${c}`, 'v', `${c} / KRW (원)`, { recs: w.recs, unit: '원', prevFirst: w.prevFirst, noSelect: true });
+  drawChart(`chart-x-${c}`, 'v', `${c} / KRW (원)`, { recs: w.recs, unit: '원', prevFirst: w.prevFirst, noSelect: true, big: true });
 }
 // 추가 통화 카드: 달러·엔 카드와 같은 격자(#extra-cards 는 display: contents)에 같은 모양으로 놓인다
 function renderExtra() {
@@ -1457,33 +1476,13 @@ function renderExtra() {
     }
     actions.appendChild(rm);
 
-    // 차트는 접어 두어 달러·엔 카드와 높이를 맞춘다 (펼친 상태는 기억)
-    const det = document.createElement('details');
-    det.className = 'extra-chart-wrap';
-    if (extraOpen.has(c)) det.open = true;
-    const sum = document.createElement('summary');
-    const lo = document.createElement('span');
-    lo.className = 'lbl-open';
-    lo.textContent = '📈 차트 보기';
-    const lc = document.createElement('span');
-    lc.className = 'lbl-close';
-    lc.textContent = '차트 접기';
-    const chev = document.createElement('span');
-    chev.className = 'chev';
-    chev.textContent = '▼';
-    chev.setAttribute('aria-hidden', 'true');
-    sum.append(lo, lc, chev);
-    const chart = document.createElement('div');
-    chart.className = 'chart';
-    chart.id = `chart-x-${c}`;
-    det.append(sum, chart);
-    det.addEventListener('toggle', () => {
-      if (det.open) { extraOpen.add(c); drawExtraChart(c); } else extraOpen.delete(c);
-    });
-    card.append(val, unit, diff, actions, det);
+    card.append(val, unit, diff, actions);
     grid.appendChild(card);
   }
-  for (const c of codes) if (extraOpen.has(c)) drawExtraChart(c); // 펼쳐 둔 차트는 카드가 붙은 뒤에 그린다
+  // 추가 통화 차트는 '최근 변화' 영역에 USD·JPY 차트와 같은 크기로 그린다
+  const chartBox = $('extra-charts');
+  chartBox.replaceChildren(...codes.map((c) => { const d = document.createElement('div'); d.className = 'chart'; d.id = `chart-x-${c}`; return d; }));
+  for (const c of codes) drawExtraChart(c);
 }
 $('extra-add').addEventListener('click', () => {
   const c = $('extra-select').value;
@@ -1509,7 +1508,6 @@ $('extra-cards').addEventListener('click', async (ev) => {
   const b = ev.target.closest('.extra-remove');
   if (!b) return;
   const c = b.dataset.cur;
-  extraOpen.delete(c);
   state.extra_currencies = extraCodes().filter((x) => x !== c);
   delete extraData[c];
   save();

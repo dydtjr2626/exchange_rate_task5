@@ -1,6 +1,6 @@
 {
-  "repo_url": "",
-  "report_url": "",
+  "repo_url": "https://github.com/dydtjr2626/exchange_rate_task5",
+  "report_url": "https://dydtjr2626.github.io/exchange_rate_task5/report/",
   "limits": { "minutes": 60, "requests": 20 },
   "A": { "minutes": 33, "requests": 8, "tool_calls": null },
   "B": { "minutes": 30, "requests": 3, "tool_calls": null },
